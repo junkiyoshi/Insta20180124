@@ -8,7 +8,7 @@ void ofApp::setup() {
 
 	ofEnableBlendMode(ofBlendMode::OF_BLENDMODE_ADD);
 
-	this->cap.open(0);
+	this->cap.open(1);
 
 	this->cap_size = cv::Size(this->cap.get(CV_CAP_PROP_FRAME_WIDTH), this->cap.get(CV_CAP_PROP_FRAME_HEIGHT));
 	ofSetFrameRate(this->cap.get(CV_CAP_PROP_FPS));
@@ -16,7 +16,7 @@ void ofApp::setup() {
 	this->image.allocate(this->cap_size.width, this->cap_size.height, OF_IMAGE_GRAYSCALE);
 	this->frame = cv::Mat(this->image.getHeight(), this->image.getWidth(), CV_MAKETYPE(CV_8UC1, this->image.getPixels().getNumChannels()), this->image.getPixels().getData(), 0);
 
-	for (int i = 0; i < 1024; i++) {
+	for (int i = 0; i < 2048; i++) {
 
 		unique_ptr<Particle> particle(new Particle());
 		this->particles.push_back(std::move(particle));
@@ -37,28 +37,36 @@ void ofApp::update() {
 	cv::Canny(src, this->frame, 50, 200);
 	cv::flip(this->frame, this->frame, 1);
 
+	vector<ofVec2f> edges;
+	for (int y = 0; y < this->frame.rows; y += 3) {
+
+		for (int x = 0; x < this->frame.cols; x += 3) {
+
+			if (this->frame.at<unsigned char>(y, x) > 0) {
+
+				edges.push_back(ofVec2f(x, y));
+			}
+		}
+	}
+
 	this->fbo.begin();
-	ofClear(128);
+	ofClear(0);
 
 	for (int i = 0; i < this->particles.size(); i++) {
 
 		this->particles[i]->update();
-		for (int y = 0; y < this->frame.rows; y += 2) {
 
-			for (int x = 0; x < this->frame.cols; x += 2) {
+		for (ofVec2f edge : edges) {
 
-				if (this->frame.at<unsigned char>(y, x) > 0) {
+			float distance = this->particles[i]->get_location().distance(edge);
+			if (distance < 30) {
 
-					float distance = this->particles[i]->get_location().distance(ofVec2f(x, y));
-					if (distance < 30) {
-
-						ofSetColor(this->particles[i]->get_body_color(), ofMap(distance, 0, 30, 255, 0));
-						ofDrawLine(this->particles[i]->get_location(), ofVec2f(x, y));
-					}
-				}
+				ofSetColor(this->particles[i]->get_body_color(), ofMap(distance, 0, 30, 255, 0));
+				ofDrawLine(this->particles[i]->get_location(), edge);
 			}
 		}
 	}
+	
 
 	//this->image.update();
 	//this->image.draw(0, 0);
